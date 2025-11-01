@@ -9,7 +9,24 @@ dotenv.config();
 const prisma = new PrismaClient();
 const app = express();
 
-app.use(cors());
+// ✅ CORS Configuration
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://sparsha-frontend.vercel.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -20,6 +37,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Routes
 app.post('/upload', upload.single('media'), async (req, res) => {
   const { alt, tags } = req.body;
   const file = req.file;
@@ -59,14 +77,11 @@ app.post('/contact', async (req, res) => {
   res.json(inquiry);
 });
 
-// DELETE media
-app.delete('/media/:id', async (req, res) => {
-  const { id } = req.params;
-  await prisma.media.delete({ where: { id: parseInt(id) } });
-  res.json({ success: true });
+app.get('/contact', async (_, res) => {
+  const inquiries = await prisma.inquiry.findMany({ orderBy: { createdAt: 'desc' } });
+  res.json(inquiries);
 });
 
-// PUT media
 app.put('/media/:id', async (req, res) => {
   const { id } = req.params;
   const { alt, tags } = req.body;
@@ -80,56 +95,10 @@ app.put('/media/:id', async (req, res) => {
   res.json(updated);
 });
 
-// GET contact inquiries
-app.get('/contact', async (_, res) => {
-  const inquiries = await prisma.inquiry.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(inquiries);
-});
-
-// GET testimonials
-app.get('/testimonials', async (_, res) => {
-  const testimonials = await prisma.testimonial.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(testimonials);
-});
-
-// POST testimonial
-app.post('/testimonial', async (req, res) => {
-  const { name, message } = req.body;
-  const testimonial = await prisma.testimonial.create({ data: { name, message } });
-  res.json(testimonial);
-});
-
-app.post('/contact', async (req, res) => {
-  const { name, phone, message } = req.body;
-  const inquiry = await prisma.inquiry.create({
-    data: { name, phone, message }
-  });
-  res.json(inquiry);
-});
-
-app.get('/contact', async (_, res) => {
-  const inquiries = await prisma.inquiry.findMany({
-    orderBy: { createdAt: 'desc' }
-  });
-  res.json(inquiries);
-});
-
-app.get('/testimonials', async (_, res) => {
-  const testimonials = await prisma.testimonial.findMany({
-    orderBy: { createdAt: 'desc' }
-  });
-  res.json(testimonials);
-});
-
-app.post('/testimonial', async (req, res) => {
-  const { name, message } = req.body;
-  const testimonial = await prisma.testimonial.create({ data: { name, message } });
-  res.json(testimonial);
-});
-
-app.get('/testimonials', async (_, res) => {
-  const testimonials = await prisma.testimonial.findMany({ orderBy: { createdAt: 'desc' } });
-  res.json(testimonials);
+app.delete('/media/:id', async (req, res) => {
+  const { id } = req.params;
+  await prisma.media.delete({ where: { id: parseInt(id) } });
+  res.json({ success: true });
 });
 
 app.put('/testimonial/:id', async (req, res) => {
@@ -148,6 +117,9 @@ app.delete('/testimonial/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// ✅ Health Check Route (optional)
+app.get('/', (req, res) => {
+  res.send('✅ Backend is live and CORS-enabled');
+});
 
-
-app.listen(5000, () => console.log('✅ Backend running at http://localhost:5000'));
+app.listen(5000, () => console.log('✅ Backend running at live'));
