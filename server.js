@@ -12,8 +12,9 @@ const app = express();
 // ✅ CORS Configuration
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://sparsha-frontend.vercel.app'
+  'https://sparsha-fabrication.vercel.app'
 ];
+
 
 app.use(cors({
   origin: function (origin, callback) {
