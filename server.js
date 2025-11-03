@@ -15,7 +15,6 @@ const allowedOrigins = [
   'https://sparsha-fabrication.vercel.app'
 ];
 
-
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -29,7 +28,13 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ✅ Static file CORS fix
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://sparsha-fabrication.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // Multer config
 const storage = multer.diskStorage({
@@ -118,7 +123,7 @@ app.delete('/testimonial/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// ✅ Health Check Route (optional)
+// ✅ Health Check Route
 app.get('/', (req, res) => {
   res.send('✅ Backend is live and CORS-enabled');
 });
