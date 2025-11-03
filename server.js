@@ -36,6 +36,7 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, 'uploads')));
 
+
 // Multer config
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, 'uploads/'),
