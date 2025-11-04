@@ -26,14 +26,15 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`❌ Blocked CORS request from: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`❌ CORS blocked: ${origin}`);
+      callback(null, false); // Don't throw — just block
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
 
 app.use(express.json());
 
@@ -179,6 +180,11 @@ app.delete('/media/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete media' });
   }
+});
+
+app.use((err, req, res, next) => {
+  console.error('🔥 Uncaught error:', err.message);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // ✅ Health Check
