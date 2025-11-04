@@ -1,13 +1,19 @@
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
-const path = require('path');
 const dotenv = require('dotenv');
 const { PrismaClient } = require('@prisma/client');
+const { createClient } = require('@supabase/supabase-js');
 
 dotenv.config();
 const prisma = new PrismaClient();
 const app = express();
+
+// ✅ Supabase Client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // ✅ CORS Configuration
 const allowedOrigins = [
@@ -29,31 +35,35 @@ app.use(cors({
 
 app.use(express.json());
 
-// ✅ Static file CORS fix
-app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://sparsha-fabrication.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  next();
-}, express.static(path.join(__dirname, 'uploads')));
-
-
-// Multer config
-const storage = multer.diskStorage({
-  destination: (_, __, cb) => cb(null, 'uploads/'),
-  filename: (_, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
+// ✅ Multer Memory Storage
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Routes
+// ✅ Upload to Supabase Storage
 app.post('/upload', upload.single('media'), async (req, res) => {
   const { alt, tags } = req.body;
   const file = req.file;
-  const url = `/uploads/${file.filename}`;
+
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+  const filePath = `gallery/${Date.now()}-${file.originalname}`;
+
+  const { data, error } = await supabase.storage
+    .from('gallery')
+    .upload(filePath, file.buffer, {
+      contentType: file.mimetype,
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  const publicUrl = supabase.storage.from('gallery').getPublicUrl(filePath).data.publicUrl;
 
   const media = await prisma.media.create({
     data: {
       filename: file.originalname,
-      url,
+      url: publicUrl,
       alt,
       tags: tags ? tags.split(',') : []
     }
@@ -62,11 +72,13 @@ app.post('/upload', upload.single('media'), async (req, res) => {
   res.json(media);
 });
 
+// ✅ Gallery
 app.get('/gallery', async (_, res) => {
   const media = await prisma.media.findMany({ orderBy: { createdAt: 'desc' } });
   res.json(media);
 });
 
+// ✅ Testimonials
 app.post('/testimonial', async (req, res) => {
   const { name, message } = req.body;
   const testimonial = await prisma.testimonial.create({ data: { name, message } });
@@ -78,6 +90,23 @@ app.get('/testimonials', async (_, res) => {
   res.json(testimonials);
 });
 
+app.put('/testimonial/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, message } = req.body;
+  const updated = await prisma.testimonial.update({
+    where: { id: parseInt(id) },
+    data: { name, message }
+  });
+  res.json(updated);
+});
+
+app.delete('/testimonial/:id', async (req, res) => {
+  const { id } = req.params;
+  await prisma.testimonial.delete({ where: { id: parseInt(id) } });
+  res.json({ success: true });
+});
+
+// ✅ Contact
 app.post('/contact', async (req, res) => {
   const { name, phone, message } = req.body;
   const inquiry = await prisma.inquiry.create({ data: { name, phone, message } });
@@ -89,6 +118,7 @@ app.get('/contact', async (_, res) => {
   res.json(inquiries);
 });
 
+// ✅ Media Update/Delete
 app.put('/media/:id', async (req, res) => {
   const { id } = req.params;
   const { alt, tags } = req.body;
@@ -108,25 +138,9 @@ app.delete('/media/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-app.put('/testimonial/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, message } = req.body;
-  const updated = await prisma.testimonial.update({
-    where: { id: parseInt(id) },
-    data: { name, message }
-  });
-  res.json(updated);
-});
-
-app.delete('/testimonial/:id', async (req, res) => {
-  const { id } = req.params;
-  await prisma.testimonial.delete({ where: { id: parseInt(id) } });
-  res.json({ success: true });
-});
-
-// ✅ Health Check Route
+// ✅ Health Check
 app.get('/', (req, res) => {
-  res.send('✅ Backend is live and CORS-enabled');
+  res.send('✅ Backend is live with Supabase Storage');
 });
 
 app.listen(5000, () => console.log('✅ Backend running at live'));
